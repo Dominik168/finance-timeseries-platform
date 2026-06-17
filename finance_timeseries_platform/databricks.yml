@@ -1,0 +1,43 @@
+# This is a Databricks asset bundle definition for finance_timeseries_platform.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: finance_timeseries_platform
+  uuid: 1427a894-ae97-4c7b-8f8c-0d5077ae3948
+
+include:
+  - resources/*.yml
+
+# Variable declarations. These variables are assigned in the dev/prod targets below.
+variables:
+  catalog:
+    description: The catalog to use
+  schema:
+    description: The schema to use
+
+targets:
+  dev:
+    # The default target uses 'mode: development' to create a development copy.
+    # - Deployed resources get prefixed with '[dev my_user_name]'
+    # - Any job schedules and triggers are paused by default.
+    # See also https://docs.databricks.com/dev-tools/bundles/deployment-modes.html.
+    mode: development
+    default: true
+    workspace:
+      host: https://adb-7405614256042875.15.azuredatabricks.net
+    variables:
+      catalog: finance_dev
+      schema: dev
+    presets:
+      artifacts_dynamic_version: true
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-7405614256042875.15.azuredatabricks.net
+      # We explicitly deploy to /Workspace/Users/azuredominik007@seznam.cz to make sure we only have a single copy.
+      root_path: /Workspace/Users/azuredominik007@seznam.cz/.bundle/${bundle.name}/${bundle.target}
+    variables:
+      catalog: finance_dev
+      schema: prod
+    permissions:
+      - user_name: azuredominik007@seznam.cz
+        level: CAN_MANAGE
