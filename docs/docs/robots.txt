@@ -1,1 +1,0 @@
-Sitemap: https://dominik168.github.io/finance-timeseries-platform/sitemap.xml
