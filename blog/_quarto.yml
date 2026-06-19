@@ -1,0 +1,18 @@
+project:
+  type: website
+  output-dir: docs
+
+website:
+  title: "Finance Time-Series Platform - Dev Journal"
+  description: "Building an end-to-end data platform on Azure Databricks, one day at a time."
+  site-url: https://dominik168.github.io/finance-timeseries-platform/
+  navbar:
+    right:
+      - about.qmd
+      - icon: github
+        href: https://github.com/dominik168/finance-timeseries-platform
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
