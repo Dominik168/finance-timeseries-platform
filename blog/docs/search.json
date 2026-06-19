@@ -7,11 +7,46 @@
     "text": "This is the first post in a Quarto blog. Welcome!\n\nSince this post doesn’t specify an explicit image, the first image in the post will be used in the listing page of posts."
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Finance Time-Series Platform",
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
     "section": "",
-    "text": "Post With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
+    "text": "This project is a finance time-series data platform built on Azure Databricks — daily OHLCV data for microcap AI stocks (including HYFT, which I actively follow), plus reference tickers SPY, QQQ, SMH, and VIX as a market-wide volatility signal.\nThe goal is twofold:\n\nA portfolio piece for Data/ML Engineer interviews, with a focus on time-series and finance/quant\nA real tool — a dashboard I’ll actually use myself to monitor my watchlist\n\nThe architecture follows the medallion pattern (Bronze → Silver → Gold), built as a config-driven framework rather than ad-hoc scripts — adding a new ticker or feature should mean editing a YAML file, not writing new code. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, and later Lakebase + Databricks Apps for serving and the dashboard.\nWhy finance/microcap and not, say, neuroscience (my original idea) or energy? Because I have a genuine personal interest in following these stocks, microcaps show more dramatic regime changes than blue-chips (visually and analytically richer data), and a finance degree gives me direct CV relevance. Productive struggle works best when you actually care about the outcome."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#what-im-building-and-why",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#what-im-building-and-why",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
+    "section": "",
+    "text": "This project is a finance time-series data platform built on Azure Databricks — daily OHLCV data for microcap AI stocks (including HYFT, which I actively follow), plus reference tickers SPY, QQQ, SMH, and VIX as a market-wide volatility signal.\nThe goal is twofold:\n\nA portfolio piece for Data/ML Engineer interviews, with a focus on time-series and finance/quant\nA real tool — a dashboard I’ll actually use myself to monitor my watchlist\n\nThe architecture follows the medallion pattern (Bronze → Silver → Gold), built as a config-driven framework rather than ad-hoc scripts — adding a new ticker or feature should mean editing a YAML file, not writing new code. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, and later Lakebase + Databricks Apps for serving and the dashboard.\nWhy finance/microcap and not, say, neuroscience (my original idea) or energy? Because I have a genuine personal interest in following these stocks, microcaps show more dramatic regime changes than blue-chips (visually and analytically richer data), and a finance degree gives me direct CV relevance. Productive struggle works best when you actually care about the outcome."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#days-1-2-infrastructure",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#days-1-2-infrastructure",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
+    "section": "Days 1-2: Infrastructure",
+    "text": "Days 1-2: Infrastructure\nBefore writing a single line of Python, I had to lay the groundwork:\n\nResource group + budget alerts (30/50/80/100%) — with a $200 starting credit, this is the first thing any serious cloud project needs\nAutomation Account with a managed identity as a safety net for auto-stopping resources, in case the alerts aren’t enough\nAzure Databricks workspace (Premium tier) — Premium is mandatory, since only it supports Unity Catalog\nDatabricks CLI (the new, Go-based one — not the older databricks-cli pip package, which is a completely different tool; only the newer CLI supports bundle init)\nGitHub repo + Databricks Asset Bundles (DAB) initialization\n\n\nKey realization: Unity Catalog is the default now\nI expected to manually set up a metastore through the Databricks Account Console. Turned out that wasn’t needed at all — Unity Catalog is automatically enabled for every workspace created after November 2023. I just opened the Catalog panel in the workspace, and it was already there.\nA good reminder that documentation and tutorials go stale fast — what was a required manual step last year, the platform now handles on its own."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#day-3-dab-configuration-cluster-and-devprod-separation",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#day-3-dab-configuration-cluster-and-devprod-separation",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
+    "section": "Day 3: DAB configuration, cluster, and dev/prod separation",
+    "text": "Day 3: DAB configuration, cluster, and dev/prod separation\n\nWhy one workspace, not two\nI considered whether dev and prod needed two separate Databricks workspaces. Decision: no — one workspace is enough, and I separate environments through Unity Catalog catalogs (finance_dev vs finance_prod). For a solo portfolio project, a second workspace would just double the cost with no real benefit. This is a deliberate architectural choice, not a shortcut — and that’s exactly how I’ll defend it in an interview.\nMy databricks.yml now has two targets:\ntargets:\n  dev:\n    mode: development\n    variables:\n      catalog: finance_dev\n  prod:\n    mode: production\n    variables:\n      catalog: finance_prod\n    permissions:\n      - user_name: azuredominik007@seznam.cz\n        level: CAN_MANAGE\nOne detail worth noting: in dev mode, Databricks automatically prefixes every resource ([dev username]) and sets you as the owner, so an explicit permissions block isn’t needed there. In prod mode it’s the opposite — nothing is implicit, so access has to be granted explicitly.\n\n\nInteractive cluster vs. job cluster\nAnother distinction I clarified today: an interactive cluster (for notebook development) is created manually in the UI and keeps running until you stop it. A job cluster, on the other hand, is defined directly in the DAB bundle — it spins up automatically when a job runs and terminates when it’s done. That will be the standard for the production pipeline (bronze→silver→gold). Today I only set up the former, for development."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#side-project-a-dev-blog",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#side-project-a-dev-blog",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
+    "section": "Side project: a dev blog",
+    "text": "Side project: a dev blog\nI decided to keep a running blog about building this project — Quarto + GitHub Pages, living right inside the repo. It’s not just a portfolio nicety: writing in my own words about what I did today and why is the best form of retrieval practice I know. The blog will run alongside the project for the full 100 days."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#whats-next",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#whats-next",
+    "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
+    "section": "What’s next",
+    "text": "What’s next\nDay 4 is about storage — a Unity Catalog external location backed by ADLS Gen2, and the first real Bronze Delta table. That’s where I finally get to the data."
   },
   {
     "objectID": "about.html",
@@ -19,6 +54,13 @@
     "title": "About",
     "section": "",
     "text": "About this blog"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Finance Time-Series Platform",
+    "section": "",
+    "text": "Days 1-3: Foundations — Azure, Databricks, and Why This Project\n\n\n\nsetup\n\nazure\n\ndatabricks\n\nunity-catalog\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nPost With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "posts/post-with-code/index.html",

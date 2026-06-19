@@ -12,7 +12,7 @@
 <generator>quarto-1.9.38</generator>
 <lastBuildDate>Thu, 18 Jun 2026 22:00:00 GMT</lastBuildDate>
 <item>
-  <title>Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt</title>
+  <title>Days 1-3: Foundations — Azure, Databricks, and Why This Project</title>
   <link>https://dominik168.github.io/finance-timeseries-platform/posts/day-01-03-foundations/day-01-03-foundations.html</link>
   <description><![CDATA[ 
 
@@ -20,39 +20,39 @@
 
 
 
-<section id="co-stavím-a-proč" class="level2">
-<h2 class="anchored" data-anchor-id="co-stavím-a-proč">Co stavím a proč</h2>
-<p>Tenhle projekt je <strong>finance time-series data platforma</strong> postavená na Azure Databricks — denní OHLCV data pro microcap AI akcie (vč. mého sledovaného HYFT), s referenčními tickery SPY, QQQ, SMH a VIX jako market-wide volatility signálem.</p>
-<p>Cíl je dvojí:</p>
+<section id="what-im-building-and-why" class="level2">
+<h2 class="anchored" data-anchor-id="what-im-building-and-why">What I’m building, and why</h2>
+<p>This project is a <strong>finance time-series data platform</strong> built on Azure Databricks — daily OHLCV data for microcap AI stocks (including HYFT, which I actively follow), plus reference tickers SPY, QQQ, SMH, and VIX as a market-wide volatility signal.</p>
+<p>The goal is twofold:</p>
 <ol type="1">
-<li><strong>Portfolio piece</strong> pro pohovory na pozice Data/ML Engineer se zaměřením na time-series a finance/quant prostředí</li>
-<li><strong>Reálný nástroj</strong> — dashboard, který budu sám používat k monitoringu watchlistu</li>
+<li>A <strong>portfolio piece</strong> for Data/ML Engineer interviews, with a focus on time-series and finance/quant</li>
+<li>A <strong>real tool</strong> — a dashboard I’ll actually use myself to monitor my watchlist</li>
 </ol>
-<p>Architektura je postavená jako <strong>medallion</strong> (Bronze → Silver → Gold), celé jako <strong>config-driven framework</strong> (ne ad-hoc skripty) — přidání nového tickeru nebo feature bude znamenat úpravu YAML configu, ne psaní nového kódu. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, a později Lakebase + Databricks Apps pro serving a dashboard.</p>
-<p>Proč finance/microcap a ne třeba neuroscience (můj původní nápad) nebo energetika? Protože mám reálný osobní zájem sledovat tyhle akcie, microcapy mají dramatičtější regime changes než blue-chipy (vizuálně i analyticky bohatší data), a finance bakalář mi dává přímou relevanci pro CV. Productive struggle funguje nejlíp, když člověku na výsledku skutečně záleží.</p>
+<p>The architecture follows the <strong>medallion pattern</strong> (Bronze → Silver → Gold), built as a <strong>config-driven framework</strong> rather than ad-hoc scripts — adding a new ticker or feature should mean editing a YAML file, not writing new code. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, and later Lakebase + Databricks Apps for serving and the dashboard.</p>
+<p>Why finance/microcap and not, say, neuroscience (my original idea) or energy? Because I have a genuine personal interest in following these stocks, microcaps show more dramatic regime changes than blue-chips (visually and analytically richer data), and a finance degree gives me direct CV relevance. Productive struggle works best when you actually care about the outcome.</p>
 </section>
-<section id="den-1-2-infrastruktura" class="level2">
-<h2 class="anchored" data-anchor-id="den-1-2-infrastruktura">Den 1-2: Infrastruktura</h2>
-<p>Než jsem napsal jediný řádek Pythonu, bylo potřeba postavit základ:</p>
+<section id="days-1-2-infrastructure" class="level2">
+<h2 class="anchored" data-anchor-id="days-1-2-infrastructure">Days 1-2: Infrastructure</h2>
+<p>Before writing a single line of Python, I had to lay the groundwork:</p>
 <ul>
-<li><strong>Resource group</strong> + <strong>budget alerty</strong> (30/50/80/100 %) — s $200 startovním kreditem je tohle první věc, kterou každý seriózní cloud projekt potřebuje</li>
-<li><strong>Automation Account</strong> s managed identity jako pojistka pro automatické zastavení resources, kdyby alerty nestačily</li>
-<li><strong>Azure Databricks workspace</strong> (Premium tier) — Premium je nutnost, protože jen ten podporuje Unity Catalog</li>
-<li><strong>Databricks CLI</strong> (nový, Go-based, ne starý <code>databricks-cli</code> pip balíček — to jsou dva different nástroje, jen ten novější umí <code>bundle init</code>)</li>
-<li><strong>GitHub repo</strong> + <strong>Databricks Asset Bundles (DAB)</strong> inicializace</li>
+<li><strong>Resource group</strong> + <strong>budget alerts</strong> (30/50/80/100%) — with a $200 starting credit, this is the first thing any serious cloud project needs</li>
+<li><strong>Automation Account</strong> with a managed identity as a safety net for auto-stopping resources, in case the alerts aren’t enough</li>
+<li><strong>Azure Databricks workspace</strong> (Premium tier) — Premium is mandatory, since only it supports Unity Catalog</li>
+<li><strong>Databricks CLI</strong> (the new, Go-based one — not the older <code>databricks-cli</code> pip package, which is a completely different tool; only the newer CLI supports <code>bundle init</code>)</li>
+<li><strong>GitHub repo</strong> + <strong>Databricks Asset Bundles (DAB)</strong> initialization</li>
 </ul>
-<section id="klíčové-poznání-unity-catalog-je-dnes-default" class="level3">
-<h3 class="anchored" data-anchor-id="klíčové-poznání-unity-catalog-je-dnes-default">Klíčové poznání: Unity Catalog je dnes default</h3>
-<p>Čekal jsem, že budu muset ručně zakládat metastore přes Databricks Account Console. Nakonec to nebylo potřeba — <strong>Unity Catalog je automaticky aktivní pro každý workspace vytvořený po listopadu 2023.</strong> Stačilo otevřít Catalog panel ve workspace a byl tam.</p>
-<p>To je dobrá připomínka, že dokumentace a tutoriály na internetu rychle zastarávají — co byl loni nutný manuální krok, dnes platforma řeší sama.</p>
+<section id="key-realization-unity-catalog-is-the-default-now" class="level3">
+<h3 class="anchored" data-anchor-id="key-realization-unity-catalog-is-the-default-now">Key realization: Unity Catalog is the default now</h3>
+<p>I expected to manually set up a metastore through the Databricks Account Console. Turned out that wasn’t needed at all — <strong>Unity Catalog is automatically enabled for every workspace created after November 2023.</strong> I just opened the Catalog panel in the workspace, and it was already there.</p>
+<p>A good reminder that documentation and tutorials go stale fast — what was a required manual step last year, the platform now handles on its own.</p>
 </section>
 </section>
-<section id="den-3-dab-konfigurace-cluster-a-separace-devprod" class="level2">
-<h2 class="anchored" data-anchor-id="den-3-dab-konfigurace-cluster-a-separace-devprod">Den 3: DAB konfigurace, cluster a separace dev/prod</h2>
-<section id="proč-jeden-workspace-ne-dva" class="level3">
-<h3 class="anchored" data-anchor-id="proč-jeden-workspace-ne-dva">Proč jeden workspace, ne dva</h3>
-<p>Zvažoval jsem, jestli pro dev a prod nepotřebuju dva oddělené Databricks workspace. Rozhodnutí: <strong>ne</strong> — jeden workspace stačí, separaci řeším přes <strong>Unity Catalog catalogy</strong> (<code>finance_dev</code> vs <code>finance_prod</code>). Pro solo portfolio projekt by druhý workspace jen zdvojnásobil náklady bez přidané hodnoty. Tohle je vědomá architektonická volba, ne zjednodušení — a přesně takhle to budu umět obhájit na pohovoru.</p>
-<p>V <code>databricks.yml</code> mám teď dva targets:</p>
+<section id="day-3-dab-configuration-cluster-and-devprod-separation" class="level2">
+<h2 class="anchored" data-anchor-id="day-3-dab-configuration-cluster-and-devprod-separation">Day 3: DAB configuration, cluster, and dev/prod separation</h2>
+<section id="why-one-workspace-not-two" class="level3">
+<h3 class="anchored" data-anchor-id="why-one-workspace-not-two">Why one workspace, not two</h3>
+<p>I considered whether dev and prod needed two separate Databricks workspaces. Decision: <strong>no</strong> — one workspace is enough, and I separate environments through <strong>Unity Catalog catalogs</strong> (<code>finance_dev</code> vs <code>finance_prod</code>). For a solo portfolio project, a second workspace would just double the cost with no real benefit. This is a deliberate architectural choice, not a shortcut — and that’s exactly how I’ll defend it in an interview.</p>
+<p>My <code>databricks.yml</code> now has two targets:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><span class="fu" style="color: #4758AB;
 background-color: null;
 font-style: inherit;">targets</span><span class="kw" style="color: #003B4F;
@@ -164,20 +164,20 @@ font-weight: bold;
 font-style: inherit;">:</span><span class="at" style="color: #657422;
 background-color: null;
 font-style: inherit;"> CAN_MANAGE</span></span></code></pre></div></div>
-<p>Zajímavý detail: v <code>dev</code> módu Databricks automaticky prefixuje všechny resources (<code>[dev username]</code>) a tebe nastaví jako vlastníka, takže explicitní <code>permissions</code> blok tam nepotřebuješ. V <code>prod</code> módu je to naopak — nic není implicitní, takže přístup musíš nastavit ručně.</p>
+<p>One detail worth noting: in <code>dev</code> mode, Databricks automatically prefixes every resource (<code>[dev username]</code>) and sets you as the owner, so an explicit <code>permissions</code> block isn’t needed there. In <code>prod</code> mode it’s the opposite — nothing is implicit, so access has to be granted explicitly.</p>
 </section>
-<section id="interaktivní-cluster-vs.-job-cluster" class="level3">
-<h3 class="anchored" data-anchor-id="interaktivní-cluster-vs.-job-cluster">Interaktivní cluster vs.&nbsp;job cluster</h3>
-<p>Další důležité rozlišení, které jsem si ujasnil: <strong>interaktivní cluster</strong> (pro vývoj v notebooku) se vytváří manuálně v UI a běží, dokud ho nezastavíš. <strong>Job cluster</strong> je naopak definovaný přímo v DAB bundle, vytvoří se automaticky při spuštění jobu a po doběhnutí zanikne — to bude standard pro produkční pipeline (bronze→silver→gold). Dnes jsem si založil jen ten první, pro vývoj.</p>
+<section id="interactive-cluster-vs.-job-cluster" class="level3">
+<h3 class="anchored" data-anchor-id="interactive-cluster-vs.-job-cluster">Interactive cluster vs.&nbsp;job cluster</h3>
+<p>Another distinction I clarified today: an <strong>interactive cluster</strong> (for notebook development) is created manually in the UI and keeps running until you stop it. A <strong>job cluster</strong>, on the other hand, is defined directly in the DAB bundle — it spins up automatically when a job runs and terminates when it’s done. That will be the standard for the production pipeline (bronze→silver→gold). Today I only set up the former, for development.</p>
 </section>
 </section>
-<section id="vedlejší-projekt-dev-blog" class="level2">
-<h2 class="anchored" data-anchor-id="vedlejší-projekt-dev-blog">Vedlejší projekt: dev blog</h2>
-<p>Rozhodl jsem se psát si průběžný blog o stavbě projektu — Quarto + GitHub Pages, žije přímo v repu. Důvod není jen portfolio okrasa: psaní vlastními slovy o tom, co a proč jsem dnes udělal, je nejlepší forma retrieval practice, kterou znám. Blog poběží paralelně s projektem celých 100 dní.</p>
+<section id="side-project-a-dev-blog" class="level2">
+<h2 class="anchored" data-anchor-id="side-project-a-dev-blog">Side project: a dev blog</h2>
+<p>I decided to keep a running blog about building this project — Quarto + GitHub Pages, living right inside the repo. It’s not just a portfolio nicety: writing in my own words about what I did today and why is the best form of retrieval practice I know. The blog will run alongside the project for the full 100 days.</p>
 </section>
-<section id="co-je-další" class="level2">
-<h2 class="anchored" data-anchor-id="co-je-další">Co je další</h2>
-<p>Den 4 bude o storage — Unity Catalog external location napojená na ADLS Gen2, a první skutečná Bronze Delta tabulka. Tam se konečně dostanu k datům.</p>
+<section id="whats-next" class="level2">
+<h2 class="anchored" data-anchor-id="whats-next">What’s next</h2>
+<p>Day 4 is about storage — a Unity Catalog external location backed by ADLS Gen2, and the first real Bronze Delta table. That’s where I finally get to the data.</p>
 
 
 </section>
