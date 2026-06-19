@@ -7,11 +7,46 @@
     "text": "This is the first post in a Quarto blog. Welcome!\n\nSince this post doesn’t specify an explicit image, the first image in the post will be used in the listing page of posts."
   },
   {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Finance Time-Series Platform",
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
     "section": "",
-    "text": "Post With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
+    "text": "Tenhle projekt je finance time-series data platforma postavená na Azure Databricks — denní OHLCV data pro microcap AI akcie (vč. mého sledovaného HYFT), s referenčními tickery SPY, QQQ, SMH a VIX jako market-wide volatility signálem.\nCíl je dvojí:\n\nPortfolio piece pro pohovory na pozice Data/ML Engineer se zaměřením na time-series a finance/quant prostředí\nReálný nástroj — dashboard, který budu sám používat k monitoringu watchlistu\n\nArchitektura je postavená jako medallion (Bronze → Silver → Gold), celé jako config-driven framework (ne ad-hoc skripty) — přidání nového tickeru nebo feature bude znamenat úpravu YAML configu, ne psaní nového kódu. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, a později Lakebase + Databricks Apps pro serving a dashboard.\nProč finance/microcap a ne třeba neuroscience (můj původní nápad) nebo energetika? Protože mám reálný osobní zájem sledovat tyhle akcie, microcapy mají dramatičtější regime changes než blue-chipy (vizuálně i analyticky bohatší data), a finance bakalář mi dává přímou relevanci pro CV. Productive struggle funguje nejlíp, když člověku na výsledku skutečně záleží."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#co-stavím-a-proč",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#co-stavím-a-proč",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
+    "section": "",
+    "text": "Tenhle projekt je finance time-series data platforma postavená na Azure Databricks — denní OHLCV data pro microcap AI akcie (vč. mého sledovaného HYFT), s referenčními tickery SPY, QQQ, SMH a VIX jako market-wide volatility signálem.\nCíl je dvojí:\n\nPortfolio piece pro pohovory na pozice Data/ML Engineer se zaměřením na time-series a finance/quant prostředí\nReálný nástroj — dashboard, který budu sám používat k monitoringu watchlistu\n\nArchitektura je postavená jako medallion (Bronze → Silver → Gold), celé jako config-driven framework (ne ad-hoc skripty) — přidání nového tickeru nebo feature bude znamenat úpravu YAML configu, ne psaní nového kódu. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, a později Lakebase + Databricks Apps pro serving a dashboard.\nProč finance/microcap a ne třeba neuroscience (můj původní nápad) nebo energetika? Protože mám reálný osobní zájem sledovat tyhle akcie, microcapy mají dramatičtější regime changes než blue-chipy (vizuálně i analyticky bohatší data), a finance bakalář mi dává přímou relevanci pro CV. Productive struggle funguje nejlíp, když člověku na výsledku skutečně záleží."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#den-1-2-infrastruktura",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#den-1-2-infrastruktura",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
+    "section": "Den 1-2: Infrastruktura",
+    "text": "Den 1-2: Infrastruktura\nNež jsem napsal jediný řádek Pythonu, bylo potřeba postavit základ:\n\nResource group + budget alerty (30/50/80/100 %) — s $200 startovním kreditem je tohle první věc, kterou každý seriózní cloud projekt potřebuje\nAutomation Account s managed identity jako pojistka pro automatické zastavení resources, kdyby alerty nestačily\nAzure Databricks workspace (Premium tier) — Premium je nutnost, protože jen ten podporuje Unity Catalog\nDatabricks CLI (nový, Go-based, ne starý databricks-cli pip balíček — to jsou dva different nástroje, jen ten novější umí bundle init)\nGitHub repo + Databricks Asset Bundles (DAB) inicializace\n\n\nKlíčové poznání: Unity Catalog je dnes default\nČekal jsem, že budu muset ručně zakládat metastore přes Databricks Account Console. Nakonec to nebylo potřeba — Unity Catalog je automaticky aktivní pro každý workspace vytvořený po listopadu 2023. Stačilo otevřít Catalog panel ve workspace a byl tam.\nTo je dobrá připomínka, že dokumentace a tutoriály na internetu rychle zastarávají — co byl loni nutný manuální krok, dnes platforma řeší sama."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#den-3-dab-konfigurace-cluster-a-separace-devprod",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#den-3-dab-konfigurace-cluster-a-separace-devprod",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
+    "section": "Den 3: DAB konfigurace, cluster a separace dev/prod",
+    "text": "Den 3: DAB konfigurace, cluster a separace dev/prod\n\nProč jeden workspace, ne dva\nZvažoval jsem, jestli pro dev a prod nepotřebuju dva oddělené Databricks workspace. Rozhodnutí: ne — jeden workspace stačí, separaci řeším přes Unity Catalog catalogy (finance_dev vs finance_prod). Pro solo portfolio projekt by druhý workspace jen zdvojnásobil náklady bez přidané hodnoty. Tohle je vědomá architektonická volba, ne zjednodušení — a přesně takhle to budu umět obhájit na pohovoru.\nV databricks.yml mám teď dva targets:\ntargets:\n  dev:\n    mode: development\n    variables:\n      catalog: finance_dev\n  prod:\n    mode: production\n    variables:\n      catalog: finance_prod\n    permissions:\n      - user_name: azuredominik007@seznam.cz\n        level: CAN_MANAGE\nZajímavý detail: v dev módu Databricks automaticky prefixuje všechny resources ([dev username]) a tebe nastaví jako vlastníka, takže explicitní permissions blok tam nepotřebuješ. V prod módu je to naopak — nic není implicitní, takže přístup musíš nastavit ručně.\n\n\nInteraktivní cluster vs. job cluster\nDalší důležité rozlišení, které jsem si ujasnil: interaktivní cluster (pro vývoj v notebooku) se vytváří manuálně v UI a běží, dokud ho nezastavíš. Job cluster je naopak definovaný přímo v DAB bundle, vytvoří se automaticky při spuštění jobu a po doběhnutí zanikne — to bude standard pro produkční pipeline (bronze→silver→gold). Dnes jsem si založil jen ten první, pro vývoj."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#vedlejší-projekt-dev-blog",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#vedlejší-projekt-dev-blog",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
+    "section": "Vedlejší projekt: dev blog",
+    "text": "Vedlejší projekt: dev blog\nRozhodl jsem se psát si průběžný blog o stavbě projektu — Quarto + GitHub Pages, žije přímo v repu. Důvod není jen portfolio okrasa: psaní vlastními slovy o tom, co a proč jsem dnes udělal, je nejlepší forma retrieval practice, kterou znám. Blog poběží paralelně s projektem celých 100 dní."
+  },
+  {
+    "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html#co-je-další",
+    "href": "posts/day-01-03-foundations/day-01-03-foundations.html#co-je-další",
+    "title": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt",
+    "section": "Co je další",
+    "text": "Co je další\nDen 4 bude o storage — Unity Catalog external location napojená na ADLS Gen2, a první skutečná Bronze Delta tabulka. Tam se konečně dostanu k datům."
   },
   {
     "objectID": "about.html",
@@ -19,6 +54,13 @@
     "title": "About",
     "section": "",
     "text": "About this blog"
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Finance Time-Series Platform",
+    "section": "",
+    "text": "Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt\n\n\n\nsetup\n\nazure\n\ndatabricks\n\nunity-catalog\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nPost With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "posts/post-with-code/index.html",

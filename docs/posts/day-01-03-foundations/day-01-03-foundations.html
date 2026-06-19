@@ -6,8 +6,9 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="dcterms.date" content="2026-06-19">
 
-<title>Finance Time-Series Platform – Finance Time-Series Platform - Dev Journal</title>
+<title>Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt – Finance Time-Series Platform - Dev Journal</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -23,28 +24,61 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-a0f9fd0d421825b736dc1bbcbcba2219.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-15634bcf2e68342d4ad2dfa704d543f6.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-a0f9fd0d421825b736dc1bbcbcba2219.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -72,77 +106,19 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "Search"
   }
 }</script>
-<script>
 
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
 
-    const options = {
-      valueNames: ['listing-date','listing-title','listing-author','listing-image','listing-description','listing-categories',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description","listing-categories"],
-    };
+<link rel="stylesheet" href="../../styles.css">
+</head>
 
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
-
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
-
-<link rel="stylesheet" href="styles.css">
-<link rel="alternate" type="application/rss+xml" title="Finance Time-Series Platform - Dev Journal" href="index.xml" data-external="1"></head>
-
-<body class="nav-fixed quarto-light">
+<body class="nav-fixed fullcontent quarto-light">
 
 <div id="quarto-search-results"></div>
   <header id="quarto-header" class="headroom fixed-top quarto-banner">
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">Finance Time-Series Platform - Dev Journal</span>
     </a>
   </div>
@@ -153,7 +129,7 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll ms-auto">
   <li class="nav-item">
-    <a class="nav-link" href="./about.html"> 
+    <a class="nav-link" href="../../about.html"> 
 <span class="menu-text">About</span></a>
   </li>  
   <li class="nav-item compact">
@@ -171,139 +147,107 @@ window.Quarto = {
 <!-- content -->
 <header id="title-block-header" class="quarto-title-block default page-columns page-full">
   <div class="quarto-title-banner page-columns page-full">
-    <div class="quarto-title column-page-left">
-      <h1 class="title">Finance Time-Series Platform</h1>
-                      </div>
+    <div class="quarto-title column-body">
+      <h1 class="title">Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt</h1>
+                                <div class="quarto-categories">
+                <div class="quarto-category">setup</div>
+                <div class="quarto-category">azure</div>
+                <div class="quarto-category">databricks</div>
+                <div class="quarto-category">unity-catalog</div>
+              </div>
+                  </div>
   </div>
     
   
-  <div class="quarto-title-meta column-page-left">
+  <div class="quarto-title-meta">
 
       
+      <div>
+      <div class="quarto-title-meta-heading">Published</div>
+      <div class="quarto-title-meta-contents">
+        <p class="date">June 19, 2026</p>
+      </div>
+    </div>
     
       
     </div>
     
   
-  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-full page-navbar">
+  </header><div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        
-    <h5 class="quarto-listing-category-title">Categories</h5><div class="quarto-listing-category category-default"><div class="category" data-category="">All <span class="quarto-category-count">(3)</span></div><div class="category" data-category="YW5hbHlzaXM=">analysis <span class="quarto-category-count">(1)</span></div><div class="category" data-category="YXp1cmU=">azure <span class="quarto-category-count">(1)</span></div><div class="category" data-category="Y29kZQ==">code <span class="quarto-category-count">(1)</span></div><div class="category" data-category="ZGF0YWJyaWNrcw==">databricks <span class="quarto-category-count">(1)</span></div><div class="category" data-category="bmV3cw==">news <span class="quarto-category-count">(2)</span></div><div class="category" data-category="c2V0dXA=">setup <span class="quarto-category-count">(1)</span></div><div class="category" data-category="dW5pdHktY2F0YWxvZw==">unity-catalog <span class="quarto-category-count">(1)</span></div></div></div>
+    
 <!-- main -->
-<main class="content quarto-banner-title-block column-page-left" id="quarto-document-content">
+<main class="content quarto-banner-title-block" id="quarto-document-content">
 
 
 
 
 
+<section id="co-stavím-a-proč" class="level2">
+<h2 class="anchored" data-anchor-id="co-stavím-a-proč">Co stavím a proč</h2>
+<p>Tenhle projekt je <strong>finance time-series data platforma</strong> postavená na Azure Databricks — denní OHLCV data pro microcap AI akcie (vč. mého sledovaného HYFT), s referenčními tickery SPY, QQQ, SMH a VIX jako market-wide volatility signálem.</p>
+<p>Cíl je dvojí:</p>
+<ol type="1">
+<li><strong>Portfolio piece</strong> pro pohovory na pozice Data/ML Engineer se zaměřením na time-series a finance/quant prostředí</li>
+<li><strong>Reálný nástroj</strong> — dashboard, který budu sám používat k monitoringu watchlistu</li>
+</ol>
+<p>Architektura je postavená jako <strong>medallion</strong> (Bronze → Silver → Gold), celé jako <strong>config-driven framework</strong> (ne ad-hoc skripty) — přidání nového tickeru nebo feature bude znamenat úpravu YAML configu, ne psaní nového kódu. Tech stack: Databricks Asset Bundles, Unity Catalog, PySpark, MLflow, a později Lakebase + Databricks Apps pro serving a dashboard.</p>
+<p>Proč finance/microcap a ne třeba neuroscience (můj původní nápad) nebo energetika? Protože mám reálný osobní zájem sledovat tyhle akcie, microcapy mají dramatičtější regime changes než blue-chipy (vizuálně i analyticky bohatší data), a finance bakalář mi dává přímou relevanci pro CV. Productive struggle funguje nejlíp, když člověku na výsledku skutečně záleží.</p>
+</section>
+<section id="den-1-2-infrastruktura" class="level2">
+<h2 class="anchored" data-anchor-id="den-1-2-infrastruktura">Den 1-2: Infrastruktura</h2>
+<p>Než jsem napsal jediný řádek Pythonu, bylo potřeba postavit základ:</p>
+<ul>
+<li><strong>Resource group</strong> + <strong>budget alerty</strong> (30/50/80/100 %) — s $200 startovním kreditem je tohle první věc, kterou každý seriózní cloud projekt potřebuje</li>
+<li><strong>Automation Account</strong> s managed identity jako pojistka pro automatické zastavení resources, kdyby alerty nestačily</li>
+<li><strong>Azure Databricks workspace</strong> (Premium tier) — Premium je nutnost, protože jen ten podporuje Unity Catalog</li>
+<li><strong>Databricks CLI</strong> (nový, Go-based, ne starý <code>databricks-cli</code> pip balíček — to jsou dva different nástroje, jen ten novější umí <code>bundle init</code>)</li>
+<li><strong>GitHub repo</strong> + <strong>Databricks Asset Bundles (DAB)</strong> inicializace</li>
+</ul>
+<section id="klíčové-poznání-unity-catalog-je-dnes-default" class="level3">
+<h3 class="anchored" data-anchor-id="klíčové-poznání-unity-catalog-je-dnes-default">Klíčové poznání: Unity Catalog je dnes default</h3>
+<p>Čekal jsem, že budu muset ručně zakládat metastore přes Databricks Account Console. Nakonec to nebylo potřeba — <strong>Unity Catalog je automaticky aktivní pro každý workspace vytvořený po listopadu 2023.</strong> Stačilo otevřít Catalog panel ve workspace a byl tam.</p>
+<p>To je dobrá připomínka, že dokumentace a tutoriály na internetu rychle zastarávají — co byl loni nutný manuální krok, dnes platforma řeší sama.</p>
+</section>
+</section>
+<section id="den-3-dab-konfigurace-cluster-a-separace-devprod" class="level2">
+<h2 class="anchored" data-anchor-id="den-3-dab-konfigurace-cluster-a-separace-devprod">Den 3: DAB konfigurace, cluster a separace dev/prod</h2>
+<section id="proč-jeden-workspace-ne-dva" class="level3">
+<h3 class="anchored" data-anchor-id="proč-jeden-workspace-ne-dva">Proč jeden workspace, ne dva</h3>
+<p>Zvažoval jsem, jestli pro dev a prod nepotřebuju dva oddělené Databricks workspace. Rozhodnutí: <strong>ne</strong> — jeden workspace stačí, separaci řeším přes <strong>Unity Catalog catalogy</strong> (<code>finance_dev</code> vs <code>finance_prod</code>). Pro solo portfolio projekt by druhý workspace jen zdvojnásobil náklady bez přidané hodnoty. Tohle je vědomá architektonická volba, ne zjednodušení — a přesně takhle to budu umět obhájit na pohovoru.</p>
+<p>V <code>databricks.yml</code> mám teď dva targets:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">targets</span><span class="kw">:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">dev</span><span class="kw">:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> development</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">variables</span><span class="kw">:</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">catalog</span><span class="kw">:</span><span class="at"> finance_dev</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">prod</span><span class="kw">:</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">mode</span><span class="kw">:</span><span class="at"> production</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">variables</span><span class="kw">:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">catalog</span><span class="kw">:</span><span class="at"> finance_prod</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">permissions</span><span class="kw">:</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="kw">-</span><span class="at"> </span><span class="fu">user_name</span><span class="kw">:</span><span class="at"> azuredominik007@seznam.cz</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="fu">level</span><span class="kw">:</span><span class="at"> CAN_MANAGE</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Zajímavý detail: v <code>dev</code> módu Databricks automaticky prefixuje všechny resources (<code>[dev username]</code>) a tebe nastaví jako vlastníka, takže explicitní <code>permissions</code> blok tam nepotřebuješ. V <code>prod</code> módu je to naopak — nic není implicitní, takže přístup musíš nastavit ručně.</p>
+</section>
+<section id="interaktivní-cluster-vs.-job-cluster" class="level3">
+<h3 class="anchored" data-anchor-id="interaktivní-cluster-vs.-job-cluster">Interaktivní cluster vs.&nbsp;job cluster</h3>
+<p>Další důležité rozlišení, které jsem si ujasnil: <strong>interaktivní cluster</strong> (pro vývoj v notebooku) se vytváří manuálně v UI a běží, dokud ho nezastavíš. <strong>Job cluster</strong> je naopak definovaný přímo v DAB bundle, vytvoří se automaticky při spuštění jobu a po doběhnutí zanikne — to bude standard pro produkční pipeline (bronze→silver→gold). Dnes jsem si založil jen ten první, pro vývoj.</p>
+</section>
+</section>
+<section id="vedlejší-projekt-dev-blog" class="level2">
+<h2 class="anchored" data-anchor-id="vedlejší-projekt-dev-blog">Vedlejší projekt: dev blog</h2>
+<p>Rozhodl jsem se psát si průběžný blog o stavbě projektu — Quarto + GitHub Pages, žije přímo v repu. Důvod není jen portfolio okrasa: psaní vlastními slovy o tom, co a proč jsem dnes udělal, je nejlepší forma retrieval practice, kterou znám. Blog poběží paralelně s projektem celých 100 dní.</p>
+</section>
+<section id="co-je-další" class="level2">
+<h2 class="anchored" data-anchor-id="co-je-další">Co je další</h2>
+<p>Den 4 bude o storage — Unity Catalog external location napojená na ADLS Gen2, a první skutečná Bronze Delta tabulka. Tam se konečně dostanu k datům.</p>
 
 
+</section>
 
-
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-categories="c2V0dXAlMkNhenVyZSUyQ2RhdGFicmlja3MlMkN1bml0eS1jYXRhbG9n" data-listing-date-sort="1781820000000" data-listing-file-modified-sort="1781901836820" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="4" data-listing-word-count-sort="632">
-<div class="thumbnail"><a href="./posts/day-01-03-foundations/day-01-03-foundations.html" class="no-external">
-
-<div class="listing-item-img-placeholder card-img-top" >&nbsp;</div>
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/day-01-03-foundations/day-01-03-foundations.html" class="no-external">Dny 1-3: Základy — Azure, Databricks a proč vůbec tenhle projekt</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('c2V0dXA='); return false;">setup</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('YXp1cmU='); return false;">azure</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('ZGF0YWJyaWNrcw=='); return false;">databricks</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('dW5pdHktY2F0YWxvZw=='); return false;">unity-catalog</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/day-01-03-foundations/day-01-03-foundations.html" class="no-external">
-Tenhle projekt je <strong>finance time-series data platforma</strong> postavená na Azure Databricks — denní OHLCV data pro microcap AI akcie (vč. mého sledovaného HYFT), s referenčními…
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/day-01-03-foundations/day-01-03-foundations.html" class="no-external">
-<div class="listing-date">
-Jun 19, 2026
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-categories="bmV3cyUyQ2NvZGUlMkNhbmFseXNpcw==" data-listing-date-sort="1781820000000" data-listing-file-modified-sort="1781900689267" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="7">
-<div class="thumbnail"><a href="./posts/post-with-code/index.html" class="no-external">
-
-<img loading="lazy" src="./posts/post-with-code/image.jpg" class="thumbnail-image">
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/post-with-code/index.html" class="no-external">Post With Code</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('bmV3cw=='); return false;">news</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('Y29kZQ=='); return false;">code</div>
-
-<div class="listing-category" onclick="window.quartoListingCategory('YW5hbHlzaXM='); return false;">analysis</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/post-with-code/index.html" class="no-external">
-This is a post with executable code.
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/post-with-code/index.html" class="no-external">
-<div class="listing-date">
-Jun 19, 2026
-</div>
-<div class="listing-author">
-Harlow Malloc
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-categories="bmV3cw==" data-listing-date-sort="1781560800000" data-listing-file-modified-sort="1781900689261" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="32">
-<div class="thumbnail"><a href="./posts/welcome/index.html" class="no-external">
-
-<p class="card-img-top"><img loading='lazy' src="posts\welcome\thumbnail.jpg"  class="thumbnail-image card-img"/></p>
-
-</a></div>
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/welcome/index.html" class="no-external">Welcome To My Blog</a>
-</h3>
-<div class="listing-categories">
-
-<div class="listing-category" onclick="window.quartoListingCategory('bmV3cw=='); return false;">news</div>
-
-</div>
-<div class="delink listing-description"><a href="./posts/welcome/index.html" class="no-external">
-This is the first post in a Quarto blog. Welcome!
-</a></div>
-</div>
-<div class="metadata">
-<a href="./posts/welcome/index.html" class="no-external">
-<div class="listing-date">
-Jun 16, 2026
-</div>
-<div class="listing-author">
-Tristan O’Malley
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">No matching items</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";
