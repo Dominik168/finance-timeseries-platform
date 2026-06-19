@@ -27,6 +27,20 @@ Before writing a single line of Python, I had to lay the groundwork:
 - **Databricks CLI** (the new, Go-based one — not the older `databricks-cli` pip package, which is a completely different tool; only the newer CLI supports `bundle init`)
 - **GitHub repo** + **Databricks Asset Bundles (DAB)** initialization
 
+### What are Databricks Asset Bundles, and why bother?
+
+A Databricks Asset Bundle (DAB) is infrastructure-as-code for Databricks — it's how you declare jobs, clusters, notebooks, pipelines, and permissions in YAML files that live in version control alongside your Python code. Running `databricks bundle deploy` pushes the entire declared state to the workspace; `databricks bundle run <job>` runs a specific job from that bundle.
+
+The alternative is clicking through the Databricks UI to create jobs manually. That approach works for one-off exploration but fails immediately when you need:
+
+- **Reproducibility** — anyone who clones the repo and has credentials can `bundle deploy` and get an identical setup. No "works on my Databricks, not yours" problems.
+- **Environment separation without duplication** — a single `databricks.yml` file declares both dev and prod targets. The `variables` block parameterizes the differences (catalog name, cluster size, etc.). There's no separate prod copy of job definitions to keep in sync.
+- **Dev mode resource prefixing** — when you deploy to the `dev` target, Databricks automatically prepends `[dev <username>]` to every resource name. You can have five developers working in the same workspace without their jobs or tables colliding. In prod mode, names are exactly as declared.
+- **Git-native CI/CD** — because the bundle is files, a GitHub Action can call `databricks bundle deploy --target prod` on every merge to main. The deployment pipeline is just another shell command.
+- **Rollback** — if a production job breaks, you revert the commit and redeploy. The previous state is in git history.
+
+The practical consequence: the jobs I'll build for the Bronze → Silver → Gold pipeline will be defined in the bundle from day one. Adding a new ticker or a new transformation step means editing a YAML config and redeploying — not clicking through the UI and hoping you replicated everything correctly.
+
 ### Key realization: Unity Catalog is the default now
 
 I expected to manually set up a metastore through the Databricks Account Console. Turned out that wasn't needed at all — **Unity Catalog is automatically enabled for every workspace created after November 2023.** I just opened the Catalog panel in the workspace, and it was already there.
@@ -65,6 +79,24 @@ Another distinction I clarified today: an **interactive cluster** (for notebook 
 ## Side project: a dev blog
 
 I decided to keep a running blog about building this project — Quarto + GitHub Pages, living right inside the repo. It's not just a portfolio nicety: writing in my own words about what I did today and why is the best form of retrieval practice I know. The blog will run alongside the project for the full 100 days.
+
+### Why Quarto, specifically
+
+A Quarto blog sits in a sweet spot that most alternatives don't reach. Here's why it won this decision:
+
+**It's built for technical writing with code.** Quarto is a literate programming environment — you write prose and code in the same `.qmd` file, execute the code, and the output (tables, charts, prints) is embedded directly in the rendered HTML. No copy-pasting a plot from a notebook into a post. If I run a backtest or build a feature importance chart on day 40, I'll include the actual live-executed result, not a screenshot.
+
+**One source, many outputs.** The same `.qmd` file can render to HTML (the blog), a PDF report, or even a slide deck — just by changing the format in the header. This matters when the project matures: analysis written for the blog can be repurposed into a portfolio PDF without rewriting anything.
+
+**GitHub Pages deployment is genuinely trivial.** Setting `output-dir: docs` in `_quarto.yml` means `quarto render` produces a static site directly into the `docs/` folder. GitHub Pages serves from `docs/` on the main branch — no CI pipeline, no build server, no Action required. One command, push, done.
+
+**Asset bundling out of the box.** When Quarto renders the blog, it bundles all JavaScript and CSS dependencies (Bootstrap, highlight.js, MathJax, search index) into the `docs/site_libs/` folder alongside the HTML. The entire site is self-contained — there's no CDN dependency at runtime. The reader gets the same experience whether they're online or viewing a local copy. For a portfolio project that needs to be reliably accessible for interview reviewers, this is not a minor point.
+
+**Search, RSS feed, and categories for free.** The `index.qmd` listing page already has `feed: true` — that's a full Atom/RSS feed at `/index.xml` with zero extra work. The `categories: true` key on the listing generates a tag system automatically. Quarto also generates a `search.json` and wires up client-side full-text search across all posts, again with no configuration beyond what's already in the repo.
+
+**Math rendering.** Finance and ML writing regularly needs notation — returns, covariance matrices, loss functions. Quarto renders LaTeX inline and in display blocks via MathJax. Writing $r_t = \frac{P_t - P_{t-1}}{P_{t-1}}$ is a one-liner in the source.
+
+The alternative I seriously considered was a standard Jekyll or Hugo site. Both are fine, but they require separating the notebook work from the blog writing — you'd run the analysis in a notebook, export results, then write about them in a separate Markdown file. Quarto collapses that into one step, which for a data engineering project with a lot of code is the right call.
 
 ## What's next
 

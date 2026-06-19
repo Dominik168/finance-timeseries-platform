@@ -107,6 +107,35 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   }
 }</script>
 
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
 
 <link rel="stylesheet" href="../../styles.css">
 </head>
@@ -205,6 +234,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li><strong>Databricks CLI</strong> (the new, Go-based one — not the older <code>databricks-cli</code> pip package, which is a completely different tool; only the newer CLI supports <code>bundle init</code>)</li>
 <li><strong>GitHub repo</strong> + <strong>Databricks Asset Bundles (DAB)</strong> initialization</li>
 </ul>
+<section id="what-are-databricks-asset-bundles-and-why-bother" class="level3">
+<h3 class="anchored" data-anchor-id="what-are-databricks-asset-bundles-and-why-bother">What are Databricks Asset Bundles, and why bother?</h3>
+<p>A Databricks Asset Bundle (DAB) is infrastructure-as-code for Databricks — it’s how you declare jobs, clusters, notebooks, pipelines, and permissions in YAML files that live in version control alongside your Python code. Running <code>databricks bundle deploy</code> pushes the entire declared state to the workspace; <code>databricks bundle run &lt;job&gt;</code> runs a specific job from that bundle.</p>
+<p>The alternative is clicking through the Databricks UI to create jobs manually. That approach works for one-off exploration but fails immediately when you need:</p>
+<ul>
+<li><strong>Reproducibility</strong> — anyone who clones the repo and has credentials can <code>bundle deploy</code> and get an identical setup. No “works on my Databricks, not yours” problems.</li>
+<li><strong>Environment separation without duplication</strong> — a single <code>databricks.yml</code> file declares both dev and prod targets. The <code>variables</code> block parameterizes the differences (catalog name, cluster size, etc.). There’s no separate prod copy of job definitions to keep in sync.</li>
+<li><strong>Dev mode resource prefixing</strong> — when you deploy to the <code>dev</code> target, Databricks automatically prepends <code>[dev &lt;username&gt;]</code> to every resource name. You can have five developers working in the same workspace without their jobs or tables colliding. In prod mode, names are exactly as declared.</li>
+<li><strong>Git-native CI/CD</strong> — because the bundle is files, a GitHub Action can call <code>databricks bundle deploy --target prod</code> on every merge to main. The deployment pipeline is just another shell command.</li>
+<li><strong>Rollback</strong> — if a production job breaks, you revert the commit and redeploy. The previous state is in git history.</li>
+</ul>
+<p>The practical consequence: the jobs I’ll build for the Bronze → Silver → Gold pipeline will be defined in the bundle from day one. Adding a new ticker or a new transformation step means editing a YAML config and redeploying — not clicking through the UI and hoping you replicated everything correctly.</p>
+</section>
 <section id="key-realization-unity-catalog-is-the-default-now" class="level3">
 <h3 class="anchored" data-anchor-id="key-realization-unity-catalog-is-the-default-now">Key realization: Unity Catalog is the default now</h3>
 <p>I expected to manually set up a metastore through the Databricks Account Console. Turned out that wasn’t needed at all — <strong>Unity Catalog is automatically enabled for every workspace created after November 2023.</strong> I just opened the Catalog panel in the workspace, and it was already there.</p>
@@ -239,6 +281,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="side-project-a-dev-blog" class="level2">
 <h2 class="anchored" data-anchor-id="side-project-a-dev-blog">Side project: a dev blog</h2>
 <p>I decided to keep a running blog about building this project — Quarto + GitHub Pages, living right inside the repo. It’s not just a portfolio nicety: writing in my own words about what I did today and why is the best form of retrieval practice I know. The blog will run alongside the project for the full 100 days.</p>
+<section id="why-quarto-specifically" class="level3">
+<h3 class="anchored" data-anchor-id="why-quarto-specifically">Why Quarto, specifically</h3>
+<p>A Quarto blog sits in a sweet spot that most alternatives don’t reach. Here’s why it won this decision:</p>
+<p><strong>It’s built for technical writing with code.</strong> Quarto is a literate programming environment — you write prose and code in the same <code>.qmd</code> file, execute the code, and the output (tables, charts, prints) is embedded directly in the rendered HTML. No copy-pasting a plot from a notebook into a post. If I run a backtest or build a feature importance chart on day 40, I’ll include the actual live-executed result, not a screenshot.</p>
+<p><strong>One source, many outputs.</strong> The same <code>.qmd</code> file can render to HTML (the blog), a PDF report, or even a slide deck — just by changing the format in the header. This matters when the project matures: analysis written for the blog can be repurposed into a portfolio PDF without rewriting anything.</p>
+<p><strong>GitHub Pages deployment is genuinely trivial.</strong> Setting <code>output-dir: docs</code> in <code>_quarto.yml</code> means <code>quarto render</code> produces a static site directly into the <code>docs/</code> folder. GitHub Pages serves from <code>docs/</code> on the main branch — no CI pipeline, no build server, no Action required. One command, push, done.</p>
+<p><strong>Asset bundling out of the box.</strong> When Quarto renders the blog, it bundles all JavaScript and CSS dependencies (Bootstrap, highlight.js, MathJax, search index) into the <code>docs/site_libs/</code> folder alongside the HTML. The entire site is self-contained — there’s no CDN dependency at runtime. The reader gets the same experience whether they’re online or viewing a local copy. For a portfolio project that needs to be reliably accessible for interview reviewers, this is not a minor point.</p>
+<p><strong>Search, RSS feed, and categories for free.</strong> The <code>index.qmd</code> listing page already has <code>feed: true</code> — that’s a full Atom/RSS feed at <code>/index.xml</code> with zero extra work. The <code>categories: true</code> key on the listing generates a tag system automatically. Quarto also generates a <code>search.json</code> and wires up client-side full-text search across all posts, again with no configuration beyond what’s already in the repo.</p>
+<p><strong>Math rendering.</strong> Finance and ML writing regularly needs notation — returns, covariance matrices, loss functions. Quarto renders LaTeX inline and in display blocks via MathJax. Writing <span class="math inline">\(r_t = \frac{P_t - P_{t-1}}{P_{t-1}}\)</span> is a one-liner in the source.</p>
+<p>The alternative I seriously considered was a standard Jekyll or Hugo site. Both are fine, but they require separating the notebook work from the blog writing — you’d run the analysis in a notebook, export results, then write about them in a separate Markdown file. Quarto collapses that into one step, which for a data engineering project with a lot of code is the right call.</p>
+</section>
 </section>
 <section id="whats-next" class="level2">
 <h2 class="anchored" data-anchor-id="whats-next">What’s next</h2>
