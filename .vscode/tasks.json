@@ -1,0 +1,34 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "blog run",
+      "type": "shell",
+      "command": "Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass; & '${workspaceFolder}\\publish-blog.ps1'",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "blog: render only",
+      "type": "shell",
+      "command": "quarto render",
+      "options": {
+        "cwd": "${workspaceFolder}\\blog"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

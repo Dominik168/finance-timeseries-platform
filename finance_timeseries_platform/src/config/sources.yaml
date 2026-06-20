@@ -1,0 +1,48 @@
+# sources.yaml
+# Defines the ticker universe, date range, and ingestion parameters
+# for the Bronze layer ingestion pipeline.
+#
+# Adding a new ticker = add a line here, no code changes needed.
+
+universe:
+  # Microcap AI / biotech / tech tickers - primary focus group
+  microcap_ai:
+    - HYFT   # MindWalk Holdings - Bio-Native AI drug discovery
+    - BBAI   # BigBear.ai - AI decision intelligence
+    - SOUN   # SoundHound AI - voice AI
+    - GFAI   # Guardforce AI
+    - VERI   # Veritone - AI platform
+    - AITX   # Artificial Intelligence Technology Solutions
+    - LUCD   # Lucid Diagnostics (AI-assisted diagnostics)
+    - RAIL   # FreightCar America (industrial/AI-adjacent, verify sector)
+    - ABSI   # Absci - AI drug discovery (peer of HYFT)
+    - NXGL   # NexGel
+    - KULR   # KULR Technology
+    - CXAI   # CXApp - AI workplace platform
+
+  # Reference large-cap tickers - benchmark / market context
+  reference:
+    - SPY    # S&P 500 ETF
+    - QQQ    # Nasdaq 100 ETF
+    - SMH    # Semiconductor ETF
+
+  # Market-wide volatility reference
+  volatility:
+    - "^VIX"
+
+date_range:
+  start: "2018-01-01"
+  end: null  # null = up to today, refreshed on each run
+
+ingestion:
+  source: yfinance
+  interval: "1d"          # daily OHLCV
+  retry_attempts: 3
+  retry_delay_seconds: 5
+  fail_on_missing_ticker: false  # log and skip, don't fail whole pipeline
+
+# Notes:
+# - Tickers above were selected manually based on known AI/microcap names.
+# - TODO: Validate market caps via finviz.com screener (Market Cap < $300M,
+#   Sector: Technology/Healthcare AI) before treating this as final.
+#   Some tickers above may have moved out of microcap range since selection.

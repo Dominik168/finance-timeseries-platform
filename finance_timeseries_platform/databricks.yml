@@ -35,3 +35,4 @@ targets:
       schema: finance_timeseries
     permissions:
       - user_name: azuredominik007@seznam.cz
+        level: CAN_MANAGE

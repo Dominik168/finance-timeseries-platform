@@ -34,6 +34,7 @@ if (-not (Test-Path $noJekyllFile)) {
 
 Write-Host "==> Committing and pushing to GitHub..." -ForegroundColor Cyan
 git add docs
+git add blog
 $commitMessage = "Update blog - $(Get-Date -Format 'yyyy-MM-dd HH:mm')"
 git commit -m $commitMessage
 
