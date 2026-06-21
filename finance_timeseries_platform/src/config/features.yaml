@@ -16,4 +16,15 @@ returns:
   method: log  # log returns, not simple pct returns (stationarity)
   price_column: adj_close  # use split/dividend-adjusted close
 
-# Day 6+ will extend this with: rolling_volatility, moving_averages, rsi, cross_asset
+volatility:
+  windows: [20, 60]  # rolling stddev of log_return, backward-looking
+
+moving_averages:
+  windows: [20, 50, 200]  # rolling avg of price_column, backward-looking
+  price_column: adj_close
+
+rsi:
+  window: 14  # standard RSI lookback period
+  price_column: adj_close
+
+# Day 7 will extend this with: cross_asset (VIX correlation)
