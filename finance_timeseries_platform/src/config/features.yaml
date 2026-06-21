@@ -1,0 +1,19 @@
+# features.yaml
+# Defines feature transformations applied in the Silver layer.
+# Adding a new feature = add config here + implement the transform function,
+# no changes to the orchestration logic.
+
+cleaning:
+  # Tickers where volume is structurally meaningless (indices, not securities)
+  # - these are never flagged as illiquid based on volume.
+  volume_exempt_tickers:
+    - "^VIX"
+
+  # A trading day is flagged illiquid if volume == 0 for a regular security.
+  illiquid_volume_threshold: 0
+
+returns:
+  method: log  # log returns, not simple pct returns (stationarity)
+  price_column: adj_close  # use split/dividend-adjusted close
+
+# Day 6+ will extend this with: rolling_volatility, moving_averages, rsi, cross_asset
