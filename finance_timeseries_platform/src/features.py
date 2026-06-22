@@ -274,6 +274,41 @@ def add_vix_correlation(df: DataFrame, cfg: FeaturesConfig) -> DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Post-processing: NaN → NULL cleanup
+# ---------------------------------------------------------------------------
+
+def clean_nan(df: DataFrame) -> DataFrame:
+    """
+    Replace NaN values with NULL in all numeric columns.
+
+    NaN (Not a Number) is different from NULL in Spark - it's a special
+    floating point value that can appear when computing stddev/corr/division
+    over incomplete or edge-case data (e.g. last ingestion day with partial
+    market data from yfinance). NaN propagates silently through calculations
+    and is not caught by isNull() checks, so we explicitly replace it with
+    NULL here as a final cleanup step.
+    """
+    from pyspark.sql.functions import isnan
+
+    numeric_cols = [
+        "log_return",
+        "volatility_20d", "volatility_60d",
+        "ma_20", "ma_50", "ma_200",
+        "rsi",
+        "corr_vix_60d",
+    ]
+
+    for col in numeric_cols:
+        if col in df.columns:
+            df = df.withColumn(
+                col,
+                F.when(isnan(F.col(col)), F.lit(None)).otherwise(F.col(col)),
+            )
+
+    return df
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -302,6 +337,7 @@ def run_silver_transform(
     df = add_moving_averages(df, cfg)
     df = add_rsi(df, cfg)
     df = add_vix_correlation(df, cfg)
+    df = clean_nan(df)
 
     logger.info(f"Writing to {target_table} (mode={mode})")
     (

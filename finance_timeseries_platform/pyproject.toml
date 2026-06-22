@@ -2,7 +2,7 @@
 name = "finance_timeseries_platform"
 version = "0.0.1"
 authors = [{ name = "azuredominik007@seznam.cz" }]
-requires-python = ">=3.10,<3.13"
+requires-python = ">=3.10"
 dependencies = [
     # Any dependencies for jobs and pipelines in this project can be added here
     # See also https://docs.databricks.com/dev-tools/bundles/library-dependencies
@@ -29,3 +29,9 @@ build-backend = "hatchling.build"
 
 [tool.ruff]
 line-length = 120
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
