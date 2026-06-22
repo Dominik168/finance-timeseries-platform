@@ -27,4 +27,8 @@ rsi:
   window: 14  # standard RSI lookback period
   price_column: adj_close
 
-# Day 7 will extend this with: cross_asset (VIX correlation)
+cross_asset:
+  vix_ticker: "^VIX"
+  correlation_window: 60  # rolling window for VIX correlation
+
+# Day 8+ will extend this with: validation, pytest tests

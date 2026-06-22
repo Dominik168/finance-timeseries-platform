@@ -44,6 +44,8 @@ class FeaturesConfig:
     ma_price_column: str
     rsi_window: int
     rsi_price_column: str
+    vix_ticker: str
+    vix_correlation_window: int
 
 
 def load_config(config_path: str) -> FeaturesConfig:
@@ -60,6 +62,7 @@ def load_config(config_path: str) -> FeaturesConfig:
     volatility_cfg = raw.get("volatility", {})
     ma_cfg = raw.get("moving_averages", {})
     rsi_cfg = raw.get("rsi", {})
+    cross_asset_cfg = raw.get("cross_asset", {})
 
     return FeaturesConfig(
         volume_exempt_tickers=cleaning_cfg.get("volume_exempt_tickers", []),
@@ -71,6 +74,8 @@ def load_config(config_path: str) -> FeaturesConfig:
         ma_price_column=ma_cfg.get("price_column", "adj_close"),
         rsi_window=rsi_cfg.get("window", 14),
         rsi_price_column=rsi_cfg.get("price_column", "adj_close"),
+        vix_ticker=cross_asset_cfg.get("vix_ticker", "^VIX"),
+        vix_correlation_window=cross_asset_cfg.get("correlation_window", 60),
     )
 
 
@@ -230,6 +235,45 @@ def add_rsi(df: DataFrame, cfg: FeaturesConfig) -> DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Cross-asset: VIX correlation
+# ---------------------------------------------------------------------------
+
+def add_vix_correlation(df: DataFrame, cfg: FeaturesConfig) -> DataFrame:
+    """
+    Add corr_vix_60d: rolling Pearson correlation between each ticker's
+    log_return and VIX log_return over a backward-looking window.
+
+    Requires a self-join on trade_date to align VIX returns with each
+    ticker's rows before computing the rolling correlation.
+
+    Note: VIX itself will have corr_vix_60d = 1.0 (perfect self-correlation),
+    which is expected and correct — it can be filtered out downstream if needed.
+    """
+    df_vix = (
+        df.filter(F.col("ticker") == cfg.vix_ticker)
+        .select(
+            "trade_date",
+            F.col("log_return").alias("vix_log_return"),
+        )
+    )
+
+    df_joined = df.join(df_vix, on="trade_date", how="left")
+
+    window_spec = (
+        Window.partitionBy("ticker")
+        .orderBy("trade_date")
+        .rowsBetween(-(cfg.vix_correlation_window - 1), 0)
+    )
+
+    df_corr = df_joined.withColumn(
+        "corr_vix_60d",
+        F.corr(F.col("log_return"), F.col("vix_log_return")).over(window_spec),
+    )
+
+    return df_corr.drop("vix_log_return")
+
+
+# ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
 
@@ -257,6 +301,7 @@ def run_silver_transform(
     df = add_rolling_volatility(df, cfg)
     df = add_moving_averages(df, cfg)
     df = add_rsi(df, cfg)
+    df = add_vix_correlation(df, cfg)
 
     logger.info(f"Writing to {target_table} (mode={mode})")
     (
