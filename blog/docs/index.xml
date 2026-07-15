@@ -10,7 +10,110 @@
 <atom:link href="https://dominik168.github.io/finance-timeseries-platform/index.xml" rel="self" type="application/rss+xml"/>
 <description>Building an end-to-end data platform on Azure Databricks, one day at a time.</description>
 <generator>quarto-1.9.38</generator>
-<lastBuildDate>Thu, 18 Jun 2026 22:00:00 GMT</lastBuildDate>
+<lastBuildDate>Tue, 14 Jul 2026 22:00:00 GMT</lastBuildDate>
+<item>
+  <title>Days 5-10: Silver Features and a Star Schema in Gold</title>
+  <link>https://dominik168.github.io/finance-timeseries-platform/posts/day-05-10-silver-gold/day-05-10-silver-gold.html</link>
+  <description><![CDATA[ 
+
+
+
+
+
+<section id="what-we-built" class="level2">
+<h2 class="anchored" data-anchor-id="what-we-built">What we built</h2>
+<p>Two full layers of the medallion architecture are now complete. Silver transforms raw OHLCV data into a rich feature set ready for machine learning. Gold introduces a proper star schema on top of it — dim_date, dim_ticker with SCD Type 2, and an insert-only fact table.</p>
+</section>
+<section id="silver-layer-days-5-7-feature-engineering" class="level2">
+<h2 class="anchored" data-anchor-id="silver-layer-days-5-7-feature-engineering">Silver layer (Days 5-7): feature engineering</h2>
+<p>The Silver layer is where raw price data becomes useful. Everything runs through <code>features.py</code>, a config-driven module that reads <code>features.yaml</code> — adding a new feature means editing the YAML, not touching the Python logic.</p>
+<section id="cleaning-the-illiquid-day-flag" class="level3">
+<h3 class="anchored" data-anchor-id="cleaning-the-illiquid-day-flag">Cleaning: the illiquid day flag</h3>
+<p>Microcap stocks like HYFT regularly have days with zero trading volume — the stock simply didn’t trade. Rather than dropping these rows (which would break rolling window continuity), we flag them with an <code>is_illiquid</code> boolean column and keep them in the data.</p>
+<p>One subtlety worth noting: <code>^VIX</code> also has zero volume on every single row, but for a completely different reason — it’s an index, not a traded security, so the concept of “trading volume” doesn’t apply. We maintain a <code>volume_exempt_tickers</code> list in <code>features.yaml</code> to handle this case without special-casing it in the code.</p>
+</section>
+<section id="log-returns" class="level3">
+<h3 class="anchored" data-anchor-id="log-returns">Log returns</h3>
+<p>Rather than working with raw prices, we compute log returns: <code>ln(price_today / price_yesterday)</code>. Two reasons:</p>
+<p><strong>Stationarity</strong> — raw prices trend up or down over time, which violates assumptions of most statistical and ML models. Log returns fluctuate around zero regardless of whether the stock is at $5 or $500.</p>
+<p><strong>Time additivity</strong> — log returns can be summed across time periods. Simple percentage returns cannot: a +100% gain followed by a -50% loss nets to zero, but 50% ≠ 0. Log returns handle this correctly.</p>
+<p>The first row per ticker always has <code>log_return = NULL</code> — there’s no previous day to compare against. This is expected and correct.</p>
+</section>
+<section id="rolling-volatility-20d-and-60d" class="level3">
+<h3 class="anchored" data-anchor-id="rolling-volatility-20d-and-60d">Rolling volatility (20d and 60d)</h3>
+<p>Rolling volatility is the standard deviation of log returns over a backward-looking window. “Backward-looking” is the critical constraint: the window can only use past data, never future. Using future data here would be a look-ahead bias bug — the model would appear to predict the future because it was trained on it.</p>
+<p>Both windows use Spark’s <code>rowsBetween(-(N-1), 0)</code> pattern, which is the clean way to express “current row plus the N-1 rows before it” in a window function. The 20-day window reacts quickly to recent volatility spikes; the 60-day window gives a smoother, longer-term picture. Both will feed into the clustering model as distinct signals.</p>
+<p>We hit a Photon engine bug with 60-day windows that caused a <code>RuntimeError: Incorrect sliding frame boundaries</code>. The fix was straightforward — <code>spark.conf.set("spark.databricks.photon.enabled", "false")</code> disables the Photon accelerator for that computation. This is a known issue in certain Databricks runtime versions with larger sliding frames.</p>
+</section>
+<section id="moving-averages-20-50-200" class="level3">
+<h3 class="anchored" data-anchor-id="moving-averages-20-50-200">Moving averages (20, 50, 200)</h3>
+<p>Same <code>rowsBetween</code> window pattern, but with <code>F.avg()</code> instead of <code>F.stddev()</code>, applied to <code>adj_close</code> rather than <code>log_return</code>. The three windows correspond to roughly one month, one quarter, and one year of trading days — the standard technical analysis trio. Whether current price is above or below each moving average is a classic regime signal.</p>
+</section>
+<section id="rsi" class="level3">
+<h3 class="anchored" data-anchor-id="rsi">RSI</h3>
+<p>RSI (Relative Strength Index) is a momentum oscillator on a 0-100 scale. The calculation splits daily price changes into gains and losses, averages each over a 14-day window, and computes <code>100 - (100 / (1 + avg_gain/avg_loss))</code>. Values above 70 are conventionally “overbought”, below 30 is “oversold”.</p>
+<p>The one edge case worth handling: if <code>avg_loss = 0</code> (all 14 days were gains), the formula would divide by zero. We return 100.0 in that case — pure-gain streaks saturate RSI at its maximum.</p>
+</section>
+<section id="vix-correlation-60d" class="level3">
+<h3 class="anchored" data-anchor-id="vix-correlation-60d">VIX correlation (60d)</h3>
+<p>VIX measures the market’s expected volatility over the next 30 days, derived from S&amp;P 500 options prices. It’s commonly called the “fear index” — when markets panic, VIX spikes.</p>
+<p>For our microcap universe, VIX correlation tells us whether a stock moves with market-wide sentiment or independently. A positive correlation means the stock tends to fall when fear rises (typical for speculative microcaps). A negative correlation is unusual — it suggests the stock reacts to company-specific news rather than macro sentiment.</p>
+<p>Computing this required a self-join: since all tickers share one Silver table, we had to extract VIX returns as a separate DataFrame and join them back by <code>trade_date</code> before running the rolling <code>F.corr()</code> window.</p>
+</section>
+<section id="nan-cleanup" class="level3">
+<h3 class="anchored" data-anchor-id="nan-cleanup">NaN cleanup</h3>
+<p>After running all transformations, we found two rows with <code>NaN</code> (Not a Number) values — both for the current trading day, where <code>adj_close</code> wasn’t yet finalized by yfinance. <code>NaN</code> is different from <code>NULL</code> in Spark: <code>isNull()</code> won’t catch it, and it propagates silently through calculations. A final <code>clean_nan()</code> pass replaces all <code>NaN</code> values with <code>NULL</code> before writing to the Silver table.</p>
+</section>
+</section>
+<section id="validation-and-tests-day-8" class="level2">
+<h2 class="anchored" data-anchor-id="validation-and-tests-day-8">Validation and tests (Day 8)</h2>
+<p>Before moving on, we validated the Silver table:</p>
+<ul>
+<li>No NULL values in any column (confirmed — the sparse history for newer microcaps is just shorter, not missing)</li>
+<li>Zero volume days correctly flagged as illiquid, VIX correctly exempt</li>
+<li>NaN count across all feature columns: 0 after cleanup</li>
+</ul>
+<p>We then wrote 10 pytest unit tests covering <code>add_illiquid_flag()</code>, <code>add_log_returns()</code>, and <code>clean_nan()</code>. Tests run locally against a <code>local[1]</code> SparkSession — no cluster connection needed, which keeps the feedback loop fast.</p>
+<p>One thing worth noting about the test structure: the <code>FeaturesConfig</code> in tests is hardcoded, not read from <code>features.yaml</code>. This is intentional. Unit tests test isolated function logic, not the full pipeline including config loading. If a test read the YAML, changing a config value would break tests even when the function itself is perfectly correct — a false alarm.</p>
+</section>
+<section id="gold-layer-day-10-star-schema" class="level2">
+<h2 class="anchored" data-anchor-id="gold-layer-day-10-star-schema">Gold layer (Day 10): star schema</h2>
+<p>The Gold layer introduces dimensional modeling on top of Silver. Three tables, each with a specific role.</p>
+<section id="dim_date" class="level3">
+<h3 class="anchored" data-anchor-id="dim_date">dim_date</h3>
+<p>A pre-generated calendar table covering 2015-2030, built once and never updated (the calendar doesn’t change). It’s a conformed dimension — shared across every fact table in the Gold layer, so that “quarter” or “month” always means exactly the same thing regardless of which fact table you’re querying.</p>
+<p>The surrogate key is <code>date_sk</code> as an integer in <code>YYYYMMDD</code> format — a standard Kimball convention that makes date arithmetic readable without needing to join back to the dimension.</p>
+</section>
+<section id="dim_ticker-scd-type-2" class="level3">
+<h3 class="anchored" data-anchor-id="dim_ticker-scd-type-2">dim_ticker (SCD Type 2)</h3>
+<p>This dimension tracks when each ticker entered our tracked universe, and — as the SCD Type 2 tracked attribute — what <code>market_cap_category</code> it currently belongs to.</p>
+<p>On each pipeline run, <code>update_dim_ticker_scd2()</code> compares the current category (derived from the latest valid closing price) against what’s stored. If it changed, the old row gets closed (<code>effective_to = today</code>, <code>is_current = False</code>) and a new current row gets inserted with a fresh surrogate key.</p>
+<p>One implementation detail worth being explicit about: the “market cap category” here is derived from price alone, not from actual market cap (price × shares outstanding). This is a deliberate simplification — <code>yfinance.history()</code> doesn’t return shares outstanding, so we use price thresholds as a proxy. In a production system, you’d pull shares outstanding from a separate API endpoint. The SCD2 mechanics are identical regardless.</p>
+<p>We also handle late-arriving dimensions via <code>add_inferred_members()</code>: if a fact row references a ticker that doesn’t yet exist in <code>dim_ticker</code>, a skeleton row gets inserted automatically rather than letting the fact become an orphan FK.</p>
+</section>
+<section id="fact_ohlcv-insert-only" class="level3">
+<h3 class="anchored" data-anchor-id="fact_ohlcv-insert-only">fact_ohlcv (insert-only)</h3>
+<p>The fact table at ticker × day grain. It joins to both dimensions via surrogate keys (<code>ticker_sk</code>, <code>date_sk</code>) and carries all Silver features as measures. Insert-only means once a trading day is recorded, it never changes — there’s no SCD logic on a fact table, only on dimensions.</p>
+<p>After building the fact table, <code>check_referential_integrity()</code> runs a <code>left_anti</code> join to verify that every foreign key in the fact table has a matching row in its dimension. Both orphan counts came back at 0.</p>
+</section>
+</section>
+<section id="whats-next" class="level2">
+<h2 class="anchored" data-anchor-id="whats-next">What’s next</h2>
+<p>Day 11 starts the ML work: K-means clustering over the feature set we’ve just built, with the goal of identifying distinct market regimes across the microcap universe.</p>
+
+
+</section>
+
+ ]]></description>
+  <category>silver</category>
+  <category>gold</category>
+  <category>feature-engineering</category>
+  <category>star-schema</category>
+  <category>scd2</category>
+  <category>pyspark</category>
+  <guid>https://dominik168.github.io/finance-timeseries-platform/posts/day-05-10-silver-gold/day-05-10-silver-gold.html</guid>
+  <pubDate>Tue, 14 Jul 2026 22:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Days 1-3: Foundations — Azure, Databricks, and Why This Project</title>
   <link>https://dominik168.github.io/finance-timeseries-platform/posts/day-01-03-foundations/day-01-03-foundations.html</link>

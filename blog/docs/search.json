@@ -7,6 +7,62 @@
     "text": "This is the first post in a Quarto blog. Welcome!\n\nSince this post doesn’t specify an explicit image, the first image in the post will be used in the listing page of posts."
   },
   {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "",
+    "text": "Two full layers of the medallion architecture are now complete. Silver transforms raw OHLCV data into a rich feature set ready for machine learning. Gold introduces a proper star schema on top of it — dim_date, dim_ticker with SCD Type 2, and an insert-only fact table."
+  },
+  {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#what-we-built",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#what-we-built",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "",
+    "text": "Two full layers of the medallion architecture are now complete. Silver transforms raw OHLCV data into a rich feature set ready for machine learning. Gold introduces a proper star schema on top of it — dim_date, dim_ticker with SCD Type 2, and an insert-only fact table."
+  },
+  {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#silver-layer-days-5-7-feature-engineering",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#silver-layer-days-5-7-feature-engineering",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "Silver layer (Days 5-7): feature engineering",
+    "text": "Silver layer (Days 5-7): feature engineering\nThe Silver layer is where raw price data becomes useful. Everything runs through features.py, a config-driven module that reads features.yaml — adding a new feature means editing the YAML, not touching the Python logic.\n\nCleaning: the illiquid day flag\nMicrocap stocks like HYFT regularly have days with zero trading volume — the stock simply didn’t trade. Rather than dropping these rows (which would break rolling window continuity), we flag them with an is_illiquid boolean column and keep them in the data.\nOne subtlety worth noting: ^VIX also has zero volume on every single row, but for a completely different reason — it’s an index, not a traded security, so the concept of “trading volume” doesn’t apply. We maintain a volume_exempt_tickers list in features.yaml to handle this case without special-casing it in the code.\n\n\nLog returns\nRather than working with raw prices, we compute log returns: ln(price_today / price_yesterday). Two reasons:\nStationarity — raw prices trend up or down over time, which violates assumptions of most statistical and ML models. Log returns fluctuate around zero regardless of whether the stock is at $5 or $500.\nTime additivity — log returns can be summed across time periods. Simple percentage returns cannot: a +100% gain followed by a -50% loss nets to zero, but 50% ≠ 0. Log returns handle this correctly.\nThe first row per ticker always has log_return = NULL — there’s no previous day to compare against. This is expected and correct.\n\n\nRolling volatility (20d and 60d)\nRolling volatility is the standard deviation of log returns over a backward-looking window. “Backward-looking” is the critical constraint: the window can only use past data, never future. Using future data here would be a look-ahead bias bug — the model would appear to predict the future because it was trained on it.\nBoth windows use Spark’s rowsBetween(-(N-1), 0) pattern, which is the clean way to express “current row plus the N-1 rows before it” in a window function. The 20-day window reacts quickly to recent volatility spikes; the 60-day window gives a smoother, longer-term picture. Both will feed into the clustering model as distinct signals.\nWe hit a Photon engine bug with 60-day windows that caused a RuntimeError: Incorrect sliding frame boundaries. The fix was straightforward — spark.conf.set(\"spark.databricks.photon.enabled\", \"false\") disables the Photon accelerator for that computation. This is a known issue in certain Databricks runtime versions with larger sliding frames.\n\n\nMoving averages (20, 50, 200)\nSame rowsBetween window pattern, but with F.avg() instead of F.stddev(), applied to adj_close rather than log_return. The three windows correspond to roughly one month, one quarter, and one year of trading days — the standard technical analysis trio. Whether current price is above or below each moving average is a classic regime signal.\n\n\nRSI\nRSI (Relative Strength Index) is a momentum oscillator on a 0-100 scale. The calculation splits daily price changes into gains and losses, averages each over a 14-day window, and computes 100 - (100 / (1 + avg_gain/avg_loss)). Values above 70 are conventionally “overbought”, below 30 is “oversold”.\nThe one edge case worth handling: if avg_loss = 0 (all 14 days were gains), the formula would divide by zero. We return 100.0 in that case — pure-gain streaks saturate RSI at its maximum.\n\n\nVIX correlation (60d)\nVIX measures the market’s expected volatility over the next 30 days, derived from S&P 500 options prices. It’s commonly called the “fear index” — when markets panic, VIX spikes.\nFor our microcap universe, VIX correlation tells us whether a stock moves with market-wide sentiment or independently. A positive correlation means the stock tends to fall when fear rises (typical for speculative microcaps). A negative correlation is unusual — it suggests the stock reacts to company-specific news rather than macro sentiment.\nComputing this required a self-join: since all tickers share one Silver table, we had to extract VIX returns as a separate DataFrame and join them back by trade_date before running the rolling F.corr() window.\n\n\nNaN cleanup\nAfter running all transformations, we found two rows with NaN (Not a Number) values — both for the current trading day, where adj_close wasn’t yet finalized by yfinance. NaN is different from NULL in Spark: isNull() won’t catch it, and it propagates silently through calculations. A final clean_nan() pass replaces all NaN values with NULL before writing to the Silver table."
+  },
+  {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#validation-and-tests-day-8",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#validation-and-tests-day-8",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "Validation and tests (Day 8)",
+    "text": "Validation and tests (Day 8)\nBefore moving on, we validated the Silver table:\n\nNo NULL values in any column (confirmed — the sparse history for newer microcaps is just shorter, not missing)\nZero volume days correctly flagged as illiquid, VIX correctly exempt\nNaN count across all feature columns: 0 after cleanup\n\nWe then wrote 10 pytest unit tests covering add_illiquid_flag(), add_log_returns(), and clean_nan(). Tests run locally against a local[1] SparkSession — no cluster connection needed, which keeps the feedback loop fast.\nOne thing worth noting about the test structure: the FeaturesConfig in tests is hardcoded, not read from features.yaml. This is intentional. Unit tests test isolated function logic, not the full pipeline including config loading. If a test read the YAML, changing a config value would break tests even when the function itself is perfectly correct — a false alarm."
+  },
+  {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#gold-layer-day-10-star-schema",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#gold-layer-day-10-star-schema",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "Gold layer (Day 10): star schema",
+    "text": "Gold layer (Day 10): star schema\nThe Gold layer introduces dimensional modeling on top of Silver. Three tables, each with a specific role.\n\ndim_date\nA pre-generated calendar table covering 2015-2030, built once and never updated (the calendar doesn’t change). It’s a conformed dimension — shared across every fact table in the Gold layer, so that “quarter” or “month” always means exactly the same thing regardless of which fact table you’re querying.\nThe surrogate key is date_sk as an integer in YYYYMMDD format — a standard Kimball convention that makes date arithmetic readable without needing to join back to the dimension.\n\n\ndim_ticker (SCD Type 2)\nThis dimension tracks when each ticker entered our tracked universe, and — as the SCD Type 2 tracked attribute — what market_cap_category it currently belongs to.\nOn each pipeline run, update_dim_ticker_scd2() compares the current category (derived from the latest valid closing price) against what’s stored. If it changed, the old row gets closed (effective_to = today, is_current = False) and a new current row gets inserted with a fresh surrogate key.\nOne implementation detail worth being explicit about: the “market cap category” here is derived from price alone, not from actual market cap (price × shares outstanding). This is a deliberate simplification — yfinance.history() doesn’t return shares outstanding, so we use price thresholds as a proxy. In a production system, you’d pull shares outstanding from a separate API endpoint. The SCD2 mechanics are identical regardless.\nWe also handle late-arriving dimensions via add_inferred_members(): if a fact row references a ticker that doesn’t yet exist in dim_ticker, a skeleton row gets inserted automatically rather than letting the fact become an orphan FK.\n\n\nfact_ohlcv (insert-only)\nThe fact table at ticker × day grain. It joins to both dimensions via surrogate keys (ticker_sk, date_sk) and carries all Silver features as measures. Insert-only means once a trading day is recorded, it never changes — there’s no SCD logic on a fact table, only on dimensions.\nAfter building the fact table, check_referential_integrity() runs a left_anti join to verify that every foreign key in the fact table has a matching row in its dimension. Both orphan counts came back at 0."
+  },
+  {
+    "objectID": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#whats-next",
+    "href": "posts/day-05-10-silver-gold/day-05-10-silver-gold.html#whats-next",
+    "title": "Days 5-10: Silver Features and a Star Schema in Gold",
+    "section": "What’s next",
+    "text": "What’s next\nDay 11 starts the ML work: K-means clustering over the feature set we’ve just built, with the goal of identifying distinct market regimes across the microcap universe."
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Finance Time-Series Platform",
+    "section": "",
+    "text": "Days 5-10: Silver Features and a Star Schema in Gold\n\n\n\nsilver\n\ngold\n\nfeature-engineering\n\nstar-schema\n\nscd2\n\npyspark\n\n\n\n\n\n\n\n\n\nJul 15, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nDays 1-3: Foundations — Azure, Databricks, and Why This Project\n\n\n\nsetup\n\nazure\n\ndatabricks\n\nunity-catalog\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nPost With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "About",
+    "section": "",
+    "text": "About this blog"
+  },
+  {
     "objectID": "posts/day-01-03-foundations/day-01-03-foundations.html",
     "href": "posts/day-01-03-foundations/day-01-03-foundations.html",
     "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
@@ -47,20 +103,6 @@
     "title": "Days 1-3: Foundations — Azure, Databricks, and Why This Project",
     "section": "What’s next",
     "text": "What’s next\nDay 4 is about storage — a Unity Catalog external location backed by ADLS Gen2, and the first real Bronze Delta table. That’s where I finally get to the data."
-  },
-  {
-    "objectID": "about.html",
-    "href": "about.html",
-    "title": "About",
-    "section": "",
-    "text": "About this blog"
-  },
-  {
-    "objectID": "index.html",
-    "href": "index.html",
-    "title": "Finance Time-Series Platform",
-    "section": "",
-    "text": "Days 1-3: Foundations — Azure, Databricks, and Why This Project\n\n\n\nsetup\n\nazure\n\ndatabricks\n\nunity-catalog\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\n\n\n\n\n\n\n\n\n\n\nPost With Code\n\n\n\nnews\n\ncode\n\nanalysis\n\n\n\n\n\n\n\n\n\nJun 19, 2026\n\n\nHarlow Malloc\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome To My Blog\n\n\n\nnews\n\n\n\n\n\n\n\n\n\nJun 16, 2026\n\n\nTristan O’Malley\n\n\n\n\n\nNo matching items"
   },
   {
     "objectID": "posts/post-with-code/index.html",
