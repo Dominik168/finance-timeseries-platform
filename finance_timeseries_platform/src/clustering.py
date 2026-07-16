@@ -42,10 +42,14 @@ logging.basicConfig(level=logging.INFO)
 # - volatility_60d: correlated with volatility_20d, adds noise not signal
 CLUSTER_FEATURES = ["log_return", "volatility_20d", "rsi", "corr_vix_60d"]
 
-# Regime label mapping - will be populated after inspecting cluster centroids
-# (Day 13: naming/interpreting regimes)
+# Regime label mapping based on cluster centroid analysis (Day 13)
+# Cluster 0: low volatility, near-zero return, neutral RSI → calm market
+# Cluster 1: high return, high volatility, strong VIX correlation → momentum
+# Cluster 2: large negative return, highest volatility, idiosyncratic → selloff
 REGIME_LABELS = {
-    # placeholder - will be updated after first clustering run
+    0: "calm_low_vol",
+    1: "high_vol_momentum",
+    2: "high_vol_selloff",
 }
 
 
@@ -155,6 +159,35 @@ def find_optimal_k(
 # Main clustering run
 # ---------------------------------------------------------------------------
 
+def label_regimes(
+    spark: SparkSession,
+    target_table: str = "finance_dev.gold.fact_regimes",
+    regime_labels: dict = REGIME_LABELS,
+) -> DataFrame:
+    """
+    Assign human-readable regime labels to the fact_regimes table based
+    on the REGIME_LABELS mapping. Updates the regime_label column in place.
+
+    Run this after run_clustering() once you've inspected the centroids
+    and decided on names (Day 13).
+    """
+    df = spark.table(target_table)
+
+    # Build a mapping expression from cluster int → label string
+    label_expr = F.lit("unknown")
+    for cluster_id, label in regime_labels.items():
+        label_expr = F.when(
+            F.col("cluster") == cluster_id, F.lit(label)
+        ).otherwise(label_expr)
+
+    df_labeled = df.withColumn("regime_label", label_expr)
+
+    logger.info(f"Writing labeled regimes to {target_table}")
+    df_labeled.write.format("delta").mode("overwrite").saveAsTable(target_table)
+
+    return df_labeled
+
+
 def run_clustering(
     spark: SparkSession,
     n_clusters: int = 4,
@@ -205,10 +238,15 @@ def run_clustering(
 
         logger.info(f"Silhouette score: {silhouette:.4f}")
 
-        # Add placeholder regime_label (will be named on Day 13)
+        # Add regime_label from REGIME_LABELS mapping
+        label_expr = F.lit("unknown")
+        for cluster_id, label in REGIME_LABELS.items():
+            label_expr = F.when(
+                F.col("cluster") == cluster_id, F.lit(label)
+            ).otherwise(label_expr)
+
         df_result = df_pred.withColumn(
-            "regime_label",
-            F.lit("unlabeled"),
+            "regime_label", label_expr
         ).drop("features_raw", "features_scaled")
 
         logger.info(f"Writing {df_result.count()} rows to {target_table}")
